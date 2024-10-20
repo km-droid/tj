@@ -1,9 +1,10 @@
+// src/components/CalendarView.jsx
 import React, { useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { ChevronDown } from 'lucide-react';
 
-const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const initialPnlData = {
   '2023-11-01': 27.41,
@@ -19,6 +20,7 @@ const CalendarView = () => {
   const [currentMonth, setCurrentMonth] = useState(10); // November (0-indexed)
   const [currentYear, setCurrentYear] = useState(2023);
 
+  // Handler for changing month/year with react-datepicker
   const handleMonthChange = (date) => {
     setCurrentMonth(date.getMonth());
     setCurrentYear(date.getFullYear());
@@ -29,7 +31,7 @@ const CalendarView = () => {
   };
 
   const getStartDayOfMonth = (month, year) => {
-    return new Date(year, month, 1).getDay(); // Get the starting day of the month (0=Sunday, 1=Monday, etc.)
+    return new Date(year, month, 1).getDay(); // Get the starting day of the month (0=Sunday, 6=Saturday)
   };
 
   const getPnlForDay = (day) => {
@@ -38,7 +40,7 @@ const CalendarView = () => {
   };
 
   const daysInMonth = getDaysInMonth(currentMonth, currentYear);
-  const startDay = getStartDayOfMonth(currentMonth, currentYear); // 0 = Sunday, we need 1 for Monday start
+  const startDay = getStartDayOfMonth(currentMonth, currentYear);
 
   return (
     <div className="p-6 bg-gray-900 text-white">
@@ -65,7 +67,7 @@ const CalendarView = () => {
       </div>
 
       {/* Calendar Grid */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-7 gap-2">
         {daysOfWeek.map((day) => (
           <div key={day} className="text-center text-gray-400">
             {day}
@@ -74,7 +76,7 @@ const CalendarView = () => {
 
         {/* Empty slots for days before the first day of the month */}
         {[...Array(startDay === 0 ? 6 : startDay - 1)].map((_, index) => (
-          <div key={index}></div>
+          <div key={index} className="h-12"></div>
         ))}
 
         {/* Days in the month */}
@@ -93,7 +95,7 @@ const CalendarView = () => {
           return (
             <div
               key={day}
-              className={`p-2 text-center rounded ${bgColor} ${textColor}`}
+              className={`p-2 text-center rounded ${bgColor} ${textColor} h-12 flex flex-col justify-center`}
             >
               <div className="text-sm font-bold">{day}</div>
               {pnl !== null && (
