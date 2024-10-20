@@ -20,7 +20,6 @@ const CalendarView = () => {
   const [currentMonth, setCurrentMonth] = useState(10); // November (0-indexed)
   const [currentYear, setCurrentYear] = useState(2023);
 
-  // Handler for changing month/year with react-datepicker
   const handleMonthChange = (date) => {
     setCurrentMonth(date.getMonth());
     setCurrentYear(date.getFullYear());
@@ -43,10 +42,10 @@ const CalendarView = () => {
   const startDay = getStartDayOfMonth(currentMonth, currentYear);
 
   return (
-    <div className="p-6 bg-gray-900 text-white">
+    <div className="p-6 bg-gray-900 text-white max-w-md mx-auto shadow-lg rounded-lg">
       {/* P&L Calendar Header */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">P&L Calendar</h2>
+        <h2 className="text-xl font-bold">P&L Calendar</h2>
         <div className="relative">
           <DatePicker
             selected={new Date(currentYear, currentMonth)}
@@ -67,16 +66,16 @@ const CalendarView = () => {
       </div>
 
       {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1">
         {daysOfWeek.map((day) => (
-          <div key={day} className="text-center text-gray-400">
+          <div key={day} className="text-center text-gray-400 font-semibold">
             {day}
           </div>
         ))}
 
         {/* Empty slots for days before the first day of the month */}
         {[...Array(startDay === 0 ? 6 : startDay - 1)].map((_, index) => (
-          <div key={index} className="h-12"></div>
+          <div key={index} className="h-14"></div>
         ))}
 
         {/* Days in the month */}
@@ -95,7 +94,7 @@ const CalendarView = () => {
           return (
             <div
               key={day}
-              className={`p-2 text-center rounded ${bgColor} ${textColor} h-12 flex flex-col justify-center`}
+              className={`p-2 text-center rounded ${bgColor} ${textColor} h-14 flex flex-col justify-center items-center`}
             >
               <div className="text-sm font-bold">{day}</div>
               {pnl !== null && (
