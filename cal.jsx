@@ -1,4 +1,139 @@
-//*pages/index.tsx
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: ["class"],
+  content: [
+    './pages/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}',
+	],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      colors: {
+        border: "hsl(217, 19%, 27%)",
+        input: "hsl(217, 19%, 27%)",
+        ring: "hsl(212, 98%, 55%)",
+        background: "hsl(222, 47%, 11%)",
+        foreground: "hsl(0, 0%, 100%)",
+        primary: {
+          DEFAULT: "hsl(212, 98%, 55%)",
+          foreground: "hsl(0, 0%, 100%)",
+        },
+        secondary: {
+          DEFAULT: "hsl(217, 19%, 27%)",
+          foreground: "hsl(0, 0%, 100%)",
+        },
+        destructive: {
+          DEFAULT: "hsl(0, 86%, 59%)",
+          foreground: "hsl(0, 0%, 100%)",
+        },
+        muted: {
+          DEFAULT: "hsl(217, 19%, 27%)",
+          foreground: "hsl(215, 20%, 65%)",
+        },
+        accent: {
+          DEFAULT: "hsl(217, 19%, 27%)",
+          foreground: "hsl(0, 0%, 100%)",
+        },
+        popover: {
+          DEFAULT: "hsl(222, 47%, 11%)",
+          foreground: "hsl(0, 0%, 100%)",
+        },
+        card: {
+          DEFAULT: "hsl(222, 47%, 11%)",
+          foreground: "hsl(0, 0%, 100%)",
+        },
+      },
+      borderRadius: {
+        lg: "0.5rem",
+        md: "calc(0.5rem - 2px)",
+        sm: "calc(0.5rem - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: 0 },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: 0 },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+}
+
+//* metrcic card
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowUpIcon, ArrowDownIcon } from "lucide-react"
+
+interface MetricCardProps {
+  title: string
+  value: string
+  trend: 'up' | 'down'
+  percentage: string
+}
+
+export default function MetricCard({ title, value, trend, percentage }: MetricCardProps) {
+  return (
+    <Card className="bg-background border-border">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-foreground">
+          {title}
+        </CardTitle>
+        {trend === 'up' ? (
+          <ArrowUpIcon className="h-4 w-4 text-green-500" />
+        ) : (
+          <ArrowDownIcon className="h-4 w-4 text-red-500" />
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold text-foreground">{value}</div>
+        <p className={`text-xs ${trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+          {percentage}
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+  //*header
+import Link from 'next/link'
+import { User } from 'lucide-react'
+
+export default function Header() {
+  return (
+    <header className="bg-background border-b border-border">
+      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-foreground">Store Rollout</h1>
+        <nav className="hidden md:flex space-x-4">
+          <Link href="/" className="text-foreground hover:text-primary transition-colors">Home</Link>
+          <Link href="/onboard" className="text-foreground hover:text-primary transition-colors">Onboard</Link>
+        </nav>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <span className="hidden md:inline text-foreground">John Doe</span>
+            <User size={24} className="text-primary" />
+          </div>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+//*index
 import { useState } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
@@ -17,10 +152,10 @@ import Header from '@/components/Header'
 import MetricCard from '@/components/MetricCard'
 
 const metrics = [
-  { title: 'Hardware Acquired', value: 250, trend: 'up' },
-  { title: 'Software Installed', value: 200, trend: 'up' },
-  { title: 'In-progress', value: 50, trend: 'down' },
-  { title: 'Live', value: 150, trend: 'up' },
+  { title: 'Hardware Acquired', value: '$250', trend: 'up', percentage: '+5.67%' },
+  { title: 'Software Installed', value: '$200', trend: 'up', percentage: '+3.45%' },
+  { title: 'In-progress', value: '$50', trend: 'down', percentage: '-2.34%' },
+  { title: 'Live', value: '$150', trend: 'up', percentage: '+8.90%' },
 ]
 
 const inProgressData = [
@@ -121,7 +256,7 @@ export default function Home() {
         </div>
 
         <div className="mb-4">
-          <div className="flex space-x-4 border-b overflow-x-auto">
+          <div className="flex space-x-4 border-b border-border overflow-x-auto">
             <Button
               variant="ghost"
               className={`py-2 px-4 ${
@@ -152,14 +287,14 @@ export default function Home() {
           <Input
             type="text"
             placeholder="Search stores..."
-            className="max-w-md"
+            className="max-w-md bg-secondary text-foreground"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        <div className="rounded-md border">
-          <Table className="table-auto border-collapse">
+        <div className="rounded-md border border-border">
+          <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px] cursor-pointer" onClick={() => handleSort('storeNo')}>
@@ -188,7 +323,7 @@ export default function Home() {
               {(activeTab === 'in-progress' ? paginatedInProgressData : paginatedCompletedData).map((store) => (
                 <TableRow 
                   key={store.storeNo} 
-                  className="hover:bg-muted/50 cursor-pointer transition-colors"
+                  className="hover:bg-muted/50  cursor-pointer transition-colors"
                   onClick={() => handleRowClick(store.storeNo)}
                 >
                   <TableCell className="font-medium">{store.storeNo}</TableCell>
@@ -236,8 +371,8 @@ export default function Home() {
     </div>
   )
 }
+//*store
 
-//*pages/storedetails.tsx
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
@@ -312,18 +447,18 @@ export default function StorePage() {
       <Header />
 
       <main className="container mx-auto px-4 py-8">
-        <Card className="mb-8">
+        <Card className="mb-8 bg-background border-border">
           <CardHeader>
-            <CardTitle>{storeData.name}</CardTitle>
+            <CardTitle className="text-foreground">{storeData.name}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>{storeData.address}</p>
+            <p className="text-muted-foreground">{storeData.address}</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-background border-border">
           <CardHeader>
-            <CardTitle>Rollout Progress</CardTitle>
+            <CardTitle className="text-foreground">Rollout Progress</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex justify-between items-center">
@@ -336,10 +471,10 @@ export default function StorePage() {
                           className={`w-8 h-8 rounded-full mb-2 ${
                             phase.status === 'complete' ? 'bg-green-500' :
                             phase.status === 'in-progress' ? 'bg-yellow-500' :
-                            'bg-gray-300'
+                            'bg-gray-600'
                           }`}
                         />
-                        <div className="text-xs text-center max-w-[80px]">{phase.name}</div>
+                        <div className="text-xs text-center max-w-[80px] text-muted-foreground">{phase.name}</div>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -351,7 +486,7 @@ export default function StorePage() {
                 </TooltipProvider>
               ))}
             </div>
-            <div className="mt-4 h-2 bg-gray-200  rounded-full">
+            <div className="mt-4 h-2 bg-gray-600 rounded-full">
               <div 
                 className="h-full bg-green-500 rounded-full"
                 style={{ width: `${(storeData.phases.filter(p => p.status === 'complete').length / storeData.phases.length) * 100}%` }}
@@ -361,87 +496,5 @@ export default function StorePage() {
         </Card>
       </main>
     </div>
-  )
-}
-
-//*/components/header.tsx
-import Link from 'next/link'
-import { useTheme } from 'next-themes'
-import { Sun, Moon, User } from 'lucide-react'
-import { Button } from "@/components/ui/button"
-
-export default function Header() {
-  const { theme, setTheme } = useTheme()
-
-  return (
-    <header className="bg-background border-b">
-      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Store Rollout</h1>
-        <nav className="hidden md:flex space-x-4">
-          <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-          <Link href="/onboard" className="hover:text-primary transition-colors">Onboard</Link>
-        </nav>
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          >
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-          </Button>
-          <div className="flex items-center space-x-2">
-            <span className="hidden md:inline">John Doe</span>
-            <User size={24} className="text-primary" />
-          </div>
-        </div>
-      </div>
-    </header>
-  )
-}
-
-//* /components/MetricCard.tsx
-
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-
-interface MetricCardProps {
-  title: string
-  value: number
-  trend: 'up' | 'down'
-}
-
-export default function MetricCard({ title, value, trend }: MetricCardProps) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">
-          {title}
-        </CardTitle>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          className={`h-4 w-4 ${
-            trend === 'up' ? 'text-green-500' : 'text-red-500'
-          }`}
-        >
-          <path d={trend === 'up' ? 'M7 17l5-5 5 5' : 'M7 7l5 5 5-5'} />
-        </svg>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <p className="text-xs text-muted-foreground">
-          {trend === 'up' ? '+' : '-'}{Math.floor(Math.random() * 10) + 1}% from last month
-        </p>
-      </CardContent>
-    </Card>
   )
 }
