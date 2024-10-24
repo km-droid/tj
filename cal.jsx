@@ -1,3 +1,220 @@
+//* src/lib/seedData.ts
+import { addDoc, collection, Timestamp } from 'firebase/firestore';
+import { db } from './firebase';
+import { Store, RolloutTask, HardwareInventory, SoftwareInstallation, RolloutMetrics } from '../types/firebase';
+
+const generateRandomDate = (start: Date, end: Date) => {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+};
+
+const generateStore = (id: number): Omit<Store, 'id'> => ({
+  name: `Store ${id}`,
+  storeNo: `S${id.toString().padStart(4, '0')}`,
+  address: {
+    street: `${Math.floor(Math.random() * 1000) + 1} Main St`,
+    city: ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix'][Math.floor(Math.random() * 5)],
+    state: ['NY', 'CA', 'IL', 'TX', 'AZ'][Math.floor(Math.random() * 5)],
+    zipcode: Math.floor(Math.random() * 90000 + 10000).toString(),
+    country: 'USA',
+  },
+  rolloutPhase: ['Phase 1', 'Phase 2', 'Phase 3'][Math.floor(Math.random() * 3)],
+  status: ['Pending', 'In Progress', 'Completed', 'Delayed'][Math.floor(Math.random() * 4)],
+  manager: `Manager ${id}`,
+  contactEmail: `manager${id}@example.com`,
+  contactPhone: `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
+  size: Math.floor(Math.random() * 10000) + 5000,
+  annualRevenue: Math.floor(Math.random() * 10000000) + 1000000,
+  startDate: Timestamp.fromDate(generateRandomDate(new Date(2023, 0, 1), new Date())),
+  completionDate: Math.random() > 0.5 ? Timestamp.fromDate(generateRandomDate(new Date(), new Date(2024, 11, 31))) : null,
+});
+
+const generateRolloutTask = (storeId: string): Omit<RolloutTask, 'id'> => ({
+  storeId,
+  taskName: ['Setup POS', 'Install Signage', 'Train Staff', 'Stock Inventory'][Math.floor(Math.random() * 4)],
+  description: 'Task description goes here',
+  status: ['Not Started', 'In Progress', 'Completed'][Math.floor(Math.random() * 3)],
+  assignedTo: `Employee ${Math.floor(Math.random() * 100) + 1}`,
+  dueDate: Timestamp.fromDate(generateRandomDate(new Date(), new Date(2024, 11, 31))),
+  completionDate: Math.random() > 0.5 ? Timestamp.fromDate(generateRandomDate(new Date(), new Date(2024, 11, 31))) : null,
+});
+
+const generateHardwareInventory = (storeId: string): Omit<HardwareInventory, 'id'> => ({
+  storeId,
+  itemName: ['POS Terminal', 'Barcode Scanner', 'Receipt Printer', 'Cash Drawer'][Math.floor(Math.random() * 4)],
+  itemType: 'Hardware',
+  quantity: Math.floor(Math.random() * 10) + 1,
+  status: ['In Stock', 'Installed', 'Needs Replacement'][Math.floor(Math.random() * 3)],
+  installationDate: Math.random() > 0.5 ? Timestamp.fromDate(generateRandomDate(new Date(), new Date(2024, 11, 31))) : null,
+});
+
+const generateSoftwareInstallation = (storeId: string): Omit<SoftwareInstallation, 'id'> => ({
+  storeId,
+  softwareName: ['POS Software', 'Inventory Management', 'Employee Scheduling', 'CRM'][Math.floor(Math.random() * 4)],
+  version: `v${Math.floor(Math.random() * 5) + 1}.${Math.floor(Math.random() * 10)}`,
+  status: ['Not Installed', 'Installed', 'Needs Update'][Math.floor(Math.random() * 3)],
+  installationDate: Math.random() > 0.5 ? Timestamp.fromDate(generateRandomDate(new Date(), new Date(2024, 11, 31))) : null,
+});
+
+const generateRolloutMetrics = (): Omit<RolloutMetrics, 'id'> => ({
+  date: Timestamp.fromDate(generateRandomDate(new Date(2023, 0, 1), new Date())),
+  storesInProgress: Math.floor(Math.random() * 50) + 10,
+  storesCompleted: Math.floor(Math.random() * 30),
+  hardwareAcquired: Math.floor(Math.random() * 1000) + 100,
+  softwareInstalled: Math.floor(Math.random() * 500) + 50,
+  totalValue: Math.floor(Math.random() * 10000000) + 1000000,
+});
+
+export const seedDatabase = async () => {
+  const storeIds: string[] = [];
+
+  // Generate and add 50 stores
+  for (let i = 1; i <= 50; i++) {
+    const storeData = generateStore(i);
+    const storeRef = await addDoc(collection(db, 'stores'), storeData);
+    storeIds.push(storeRef.id);
+
+    // Generate and add 3-5 rollout tasks for each store
+    const taskCount = Math.floor(Math.random() * 3) + 3;
+    for (let j = 0; j < taskCount; j++) {
+      const taskData = generateRolloutTask(storeRef.id);
+      await addDoc(collection(db, 'rolloutTasks'), taskData);
+    }
+
+    // Generate and add 3-5 hardware inventory items for each store
+    const hardwareCount = Math.floor(Math.random() * 3) + 3;
+    for (let j = 0; j < hardwareCount; j++) {
+      const hardwareData = generateHardwareInventory(storeRef.id);
+      await addDoc(collection(db, 'hardwareInventory'), hardwareData);
+    }
+
+    // Generate and add 2-4 software installations for each store
+    const softwareCount = Math.floor(Math.random() * 3) + 2;
+    for (let j = 0; j < softwareCount; j++) {
+      const softwareData = generateSoftwareInstallation(storeRef.id);
+      await addDoc(collection(db, 'softwareInstallations'), softwareData);
+    }
+  }
+
+  // Generate and add 30 rollout metrics
+  for (let i = 0; i < 30; i++) {
+    const metricsData = generateRolloutMetrics();
+    await addDoc(collection(db, 'rolloutMetrics'), metricsData);
+  }
+
+  console.log('Database seeded successfully!');
+};
+
+//* src/pages/seed.tsx
+
+import { useState } from 'react'
+import { seedDatabase } from '@/lib/seedData'
+import Layout from '@/components/Layout'
+
+export default function SeedPage() {
+  const [seeding, setSeeding] = useState(false)
+  const [seeded, setSeeded] = useState(false)
+
+  const handleSeed = async () => {
+    setSeeding(true)
+    try {
+      await seedDatabase()
+      setSeeded(true)
+    } catch (error) {
+      console.error('Error seeding database:', error)
+    } finally {
+      setSeeding(false)
+    }
+  }
+
+  return (
+    <Layout>
+      <h1 className="text-3xl font-bold mb-6">Seed Database</h1>
+      <p className="mb-4">Click the button below to seed the database with test data.</p>
+      <button
+        onClick={handleSeed}
+        disabled={seeding || seeded}
+        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50"
+      >
+        {seeding ? 'Seeding...' : seeded ? 'Database Seeded' : 'Seed Database'}
+      </button>
+      {seeded && (
+        <p className="mt-4 text-green-600">
+          Database seeded successfully! You can now navigate to other pages to see the test data.
+        </p>
+      )}
+    </Layout>
+  )
+}
+
+//* src/compos/Layout.tsx
+
+import React from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/router'
+import { HomeIcon, PlusCircleIcon, ChartBarIcon, DatabaseIcon } from '@heroicons/react/24/outline'
+
+const menuItems = [
+  { name: 'Home', href: '/', icon: HomeIcon },
+  { name: 'Onboard a Store', href: '/onboard', icon: PlusCircleIcon },
+  { name: 'Stats', href: '/stats', icon: ChartBarIcon },
+  { name: 'Seed Database', href: '/seed', icon: DatabaseIcon },
+]
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+
+  return (
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar */}
+      <div className="hidden md:flex md:flex-shrink-0">
+        <div className="flex flex-col w-64">
+          <div className="flex flex-col h-0 flex-1 bg-gray-800">
+            <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+              <div className="flex items-center flex-shrink-0 px-4">
+                <span className="text-white text-lg font-semibold">Store Rollout App</span>
+              </div>
+              <nav className="mt-5 flex-1 px-2 space-y-1">
+                {menuItems.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`${
+                      router.pathname === item.href
+                        ? 'bg-gray-900 text-white'
+                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                    } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                  >
+                    <item.icon className="mr-3 flex-shrink-0 h-6 w-6" aria-hidden="true" />
+                    {item.name}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="flex flex-col w-0 flex-1 overflow-hidden">
+        <main className="flex-1 relative z-0 overflow-y-auto focus:outline-none">
+          <div className="py-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+              {children}
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}
+
+//* NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
 //* src/lib/firebase.ts
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
