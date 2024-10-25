@@ -1,3 +1,42 @@
+// components/Sidebar.js
+import { FaHome, FaStore, FaChartBar, FaMapMarkedAlt } from 'react-icons/fa';
+import Link from 'next/link';
+
+export default function Sidebar({ sidebarOpen }) {
+  const menuItems = [
+    { href: '/', icon: <FaHome />, label: 'Dashboard' },
+    { href: '/store-onboarding', icon: <FaStore />, label: 'Store Onboarding' },
+    { href: '/rollout-status', icon: <FaChartBar />, label: 'Rollout Status' },
+    { href: '/statistics', icon: <FaChartBar />, label: 'Statistics' },
+    { href: '/map', icon: <FaMapMarkedAlt />, label: 'Map View' },
+  ];
+
+  return (
+    <div
+      className={`fixed inset-y-0 left-0 z-30 w-64 overflow-y-auto bg-gray-900 transition duration-300 transform ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:translate-x-0 lg:static lg:inset-0`}
+    >
+      <div className="flex items-center justify-center mt-8">
+        <div className="text-white text-2xl font-semibold">Edge Rollout</div>
+      </div>
+      <nav className="mt-10">
+        {menuItems.map((item) => (
+          <Link
+            href={item.href}
+            key={item.label}
+            className="flex items-center px-6 py-2 mt-4 text-gray-100 hover:bg-gray-700 hover:text-white"
+          >
+            <span className="text-xl">{item.icon}</span>
+            <span className="mx-3">{item.label}</span>
+          </Link>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+
 // components/MetricCard.js
 export default function MetricCard({ title, value }) {
   return (
