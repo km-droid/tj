@@ -1,3 +1,114 @@
+// components/MetricCard.js
+export default function MetricCard({ title, value }) {
+  return (
+    <div className="bg-gray-800 rounded-lg p-4 flex flex-col items-center">
+      <h3 className="text-gray-300 text-sm">{title}</h3>
+      <p className="text-3xl font-bold text-primary mt-2">{value}</p>
+    </div>
+  );
+}
+// components/SearchBar.js
+import { FaSearch } from 'react-icons/fa';
+
+export default function SearchBar({ searchTerm, setSearchTerm }) {
+  return (
+    <div className="relative mb-4">
+      <input
+        type="text"
+        placeholder="Search by Store Number"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full bg-gray-700 text-white border border-gray-600 rounded pl-10 pr-4 py-2 focus:outline-none focus:border-primary"
+      />
+      <FaSearch className="absolute left-3 top-3 text-gray-400" />
+    </div>
+  );
+}
+
+// pages/index.js
+import { useState, useEffect } from 'react';
+import Layout from '../components/Layout';
+import MetricCard from '../components/MetricCard';
+import DataTable from '../components/DataTable';
+import SearchBar from '../components/SearchBar';
+
+export default function Dashboard() {
+  const [stores, setStores] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [metrics, setMetrics] = useState({
+    hardwareAcquired: 0,
+    softwareInstalled: 0,
+    inProgress: 0,
+    live: 0,
+  });
+  const [filteredStores, setFilteredStores] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/stores')
+      .then((res) => res.json())
+      .then((data) => {
+        setStores(data);
+        calculateMetrics(data);
+        setFilteredStores(data);
+      });
+  }, []);
+
+  useEffect(() => {
+    const filtered = stores.filter((store) =>
+      store.storeNumber.toString().includes(searchTerm)
+    );
+    setFilteredStores(filtered);
+  }, [searchTerm, stores]);
+
+  const calculateMetrics = (data) => {
+    const metricsData = data.reduce(
+      (acc, store) => {
+        switch (store.overallStatus) {
+          case 'Hardware Acquired':
+            acc.hardwareAcquired += 1;
+            break;
+          case 'Software Installed':
+            acc.softwareInstalled += 1;
+            break;
+          case 'In-progress':
+            acc.inProgress += 1;
+            break;
+          case 'Live':
+            acc.live += 1;
+            break;
+          default:
+            break;
+        }
+        return acc;
+      },
+      {
+        hardwareAcquired: 0,
+        softwareInstalled: 0,
+        inProgress: 0,
+        live: 0,
+      }
+    );
+
+    setMetrics(metricsData);
+  };
+
+  return (
+    <Layout>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <MetricCard title="Hardware Acquired" value={metrics.hardwareAcquired} />
+        <MetricCard title="Software Installed" value={metrics.softwareInstalled} />
+        <MetricCard title="In-progress" value={metrics.inProgress} />
+        <MetricCard title="Live" value={metrics.live} />
+      </div>
+      <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      <div className="bg-gray-800 rounded-lg p-6">
+        <DataTable stores={filteredStores} />
+      </div>
+    </Layout>
+  );
+}
+
+
 // components/Header.js
 import { FaBars, FaUserCircle } from 'react-icons/fa';
 
