@@ -1,0 +1,598 @@
+// lib/datastore.js
+import { Datastore } from '@google-cloud/datastore';
+
+const datastore = new Datastore({
+  projectId: 'YOUR_PROJECT_ID',
+});
+
+export const STORE_KIND = 'Store';
+export const PHASE_KIND = 'Phase';
+export const TASK_KIND = 'Task';
+export const TEAM_KIND = 'Team';
+
+export default datastore;
+
+// pages/api/stores.js
+import datastore, { STORE_KIND } from '../../lib/datastore';
+
+export default async function handler(req, res) {
+  const query = datastore.createQuery(STORE_KIND);
+  const [stores] = await datastore.runQuery(query);
+
+  // Map the datastore entities to plain JavaScript objects
+  const storeData = stores.map((store) => ({
+    storeNumber: store.storeNumber,
+    storeName: store.storeName,
+    address: store.address,
+    city: store.city,
+    state: store.state,
+    zipCode: store.zipCode,
+    latitude: store.latitude,
+    longitude: store.longitude,
+    contactPerson: store.contactPerson,
+    contactEmail: store.contactEmail,
+    contactPhone: store.contactPhone,
+    currentPhaseId: store.currentPhaseId,
+    overallStatus: store.overallStatus,
+    lastUpdated: store.lastUpdated,
+    createdDate: store.createdDate,
+  }));
+
+  res.status(200).json(storeData);
+}
+// pages/api/store/[storeNumber].js
+import datastore, { STORE_KIND, TASK_KIND, PHASE_KIND } from '../../../lib/datastore';
+
+export default async function handler(req, res) {
+  const { storeNumber } = req.query;
+
+  // Fetch Store entity
+  const storeKey = datastore.key([STORE_KIND, storeNumber]);
+  const [store] = await datastore.get(storeKey);
+
+  if (!store) {
+    return res.status(404).json({ error: 'Store not found' });
+  }
+
+  // Fetch related Tasks
+  const taskQuery = datastore
+    .createQuery(TASK_KIND)
+    .filter('storeNumber', '=', storeNumber);
+  const [tasks] = await datastore.runQuery(taskQuery);
+
+  // Fetch Phases for tasks
+  const phaseIds = [...new Set(tasks.map((task) => task.phaseId))];
+  const phaseKeys = phaseIds.map((id) => datastore.key([PHASE_KIND, id]));
+  const [phases] = await datastore.get(phaseKeys);
+
+  // Map phases by phaseId for easy lookup
+  const phasesById = {};
+  phases.forEach((phase) => {
+    phasesById[phase.phaseId] = phase;
+  });
+
+  // Map tasks to include phase details
+  const taskData = tasks.map((task) => ({
+    taskId: task.taskId,
+    taskName: task.taskName,
+    phaseId: task.phaseId,
+    phaseName: phasesById[task.phaseId]?.phaseName || '',
+    teamId: task.teamId,
+    status: task.status,
+    startDate: task.startDate,
+    endDate: task.endDate,
+    lastUpdated: task.lastUpdated,
+    notes: task.notes,
+  }));
+
+  const storeData = {
+    storeNumber: store.storeNumber,
+    storeName: store.storeName,
+    address: store.address,
+    city: store.city,
+    state: store.state,
+    zipCode: store.zipCode,
+    latitude: store.latitude,
+    longitude: store.longitude,
+    contactPerson: store.contactPerson,
+    contactEmail: store.contactEmail,
+    contactPhone: store.contactPhone,
+    currentPhaseId: store.currentPhaseId,
+    overallStatus: store.overallStatus,
+    lastUpdated: store.lastUpdated,
+    createdDate: store.createdDate,
+    tasks: taskData,
+  };
+
+  res.status(200).json(storeData);
+}
+// pages/api/statistics.js
+import datastore, { STORE_KIND } from '../../lib/datastore';
+
+export default async function handler(req, res) {
+  const query = datastore.createQuery(STORE_KIND);
+  const [stores] = await datastore.runQuery(query);
+
+  const statusCounts = stores.reduce((acc, store) => {
+    acc[store.overallStatus] = (acc[store.overallStatus] || 0) + 1;
+    return acc;
+  }, {});
+
+  res.status(200).json(statusCounts);
+}
+// pages/index.js
+import { useState, useEffect } from 'react';
+import Layout from '../components/Layout';
+import MetricCard from '../components/MetricCard';
+import DataTable from '../components/DataTable';
+import SearchBar from '../components/SearchBar';
+
+export default function Dashboard() {
+  const [stores, setStores] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [metrics, setMetrics] = useState({});
+  const [filteredStores, setFilteredStores] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/stores')
+      .then((res) => res.json())
+      .then((data) => {
+        setStores(data);
+        calculateMetrics(data);
+        setFilteredStores(data);
+      });
+  }, []);
+
+  useEffect(() => {
+    const filtered = stores.filter((store) =>
+      store.storeNumber.toString().includes(searchTerm)
+    );
+    setFilteredStores(filtered);
+  }, [searchTerm, stores]);
+
+  const calculateMetrics = (data) => {
+    const metricsData = data.reduce(
+      (acc, store) => {
+        switch (store.overallStatus) {
+          case 'Hardware Acquired':
+            acc.hardwareAcquired += 1;
+            break;
+          case 'Software Installed':
+            acc.softwareInstalled += 1;
+            break;
+          case 'In-progress':
+            acc.inProgress += 1;
+            break;
+          case 'Live':
+            acc.live += 1;
+            break;
+          default:
+            break;
+        }
+        return acc;
+      },
+      {
+        hardwareAcquired: 0,
+        softwareInstalled: 0,
+        inProgress: 0,
+        live: 0,
+      }
+    );
+
+    setMetrics(metricsData);
+  };
+
+  return (
+    <Layout>
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <MetricCard title="Hardware Acquired" value={metrics.hardwareAcquired} />
+        <MetricCard title="Software Installed" value={metrics.softwareInstalled} />
+        <MetricCard title="In-progress" value={metrics.inProgress} />
+        <MetricCard title="Live" value={metrics.live} />
+      </div>
+      <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      <div className="bg-gray-800 rounded-lg p-6">
+        <DataTable stores={filteredStores} />
+      </div>
+    </Layout>
+  );
+}
+// components/DataTable.js
+import Link from 'next/link';
+
+export default function DataTable({ stores }) {
+  return (
+    <table className="w-full text-left table-auto">
+      <thead>
+        <tr>
+          <th className="px-4 py-2">Store Number</th>
+          <th className="px-4 py-2">Store Name</th>
+          <th className="px-4 py-2">Current Phase</th>
+          <th className="px-4 py-2">Overall Status</th>
+          <th className="px-4 py-2">ZIP Code</th>
+          <th className="px-4 py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {stores.map((store) => (
+          <tr key={store.storeNumber} className="hover:bg-gray-700">
+            <td className="px-4 py-2">{store.storeNumber}</td>
+            <td className="px-4 py-2">{store.storeName}</td>
+            <td className="px-4 py-2">{store.currentPhaseId}</td>
+            <td className="px-4 py-2">{store.overallStatus}</td>
+            <td className="px-4 py-2">{store.zipCode}</td>
+            <td className="px-4 py-2">
+              <Link href={`/store/${store.storeNumber}`}>
+                <a className="text-primary hover:underline">View</a>
+              </Link>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+// components/DataTable.js
+import Link from 'next/link';
+
+export default function DataTable({ stores }) {
+  return (
+    <table className="w-full text-left table-auto">
+      <thead>
+        <tr>
+          <th className="px-4 py-2">Store Number</th>
+          <th className="px-4 py-2">Store Name</th>
+          <th className="px-4 py-2">Current Phase</th>
+          <th className="px-4 py-2">Overall Status</th>
+          <th className="px-4 py-2">ZIP Code</th>
+          <th className="px-4 py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {stores.map((store) => (
+          <tr key={store.storeNumber} className="hover:bg-gray-700">
+            <td className="px-4 py-2">{store.storeNumber}</td>
+            <td className="px-4 py-2">{store.storeName}</td>
+            <td className="px-4 py-2">{store.currentPhaseId}</td>
+            <td className="px-4 py-2">{store.overallStatus}</td>
+            <td className="px-4 py-2">{store.zipCode}</td>
+            <td className="px-4 py-2">
+              <Link href={`/store/${store.storeNumber}`}>
+                <a className="text-primary hover:underline">View</a>
+              </Link>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+// pages/store/[storeNumber].js
+import { useRouter } from 'next/router';
+import Layout from '../../components/Layout';
+import datastore, { STORE_KIND, PHASE_KIND } from '../../lib/datastore';
+
+export default function StoreDetails({ store }) {
+  const router = useRouter();
+
+  if (router.isFallback) {
+    return <div>Loading...</div>;
+  }
+
+  // Sort tasks by phase order and task name
+  const sortedTasks = store.tasks.sort((a, b) => {
+    if (a.phaseOrder !== b.phaseOrder) {
+      return a.phaseOrder - b.phaseOrder;
+    }
+    return a.taskName.localeCompare(b.taskName);
+  });
+
+  return (
+    <Layout>
+      <div className="bg-gray-800 rounded-lg p-6">
+        <h2 className="text-2xl font-bold mb-4">Store {store.storeNumber} - {store.storeName}</h2>
+        <p><strong>Address:</strong> {store.address}, {store.city}, {store.state}, {store.zipCode}</p>
+        <p><strong>Contact Person:</strong> {store.contactPerson}</p>
+        <p><strong>Email:</strong> {store.contactEmail}</p>
+        <p><strong>Phone:</strong> {store.contactPhone}</p>
+
+        <div className="mt-6">
+          <h3 className="text-xl font-bold mb-4">Rollout Phases</h3>
+          <div className="flex items-center">
+            {store.phases.map((phase) => (
+              <div key={phase.phaseId} className="flex-1">
+                <div className={`h-2 ${phase.phaseOrder <= store.currentPhaseOrder ? 'bg-primary' : 'bg-gray-600'}`}></div>
+                <div className="text-center mt-2">{phase.phaseName}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <h3 className="text-xl font-bold mb-4">Tasks</h3>
+          <table className="w-full text-left table-auto">
+            <thead>
+              <tr>
+                <th className="px-4 py-2">Task</th>
+                <th className="px-4 py-2">Phase</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Team</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedTasks.map((task) => (
+                <tr key={task.taskId} className="hover:bg-gray-700">
+                  <td className="px-4 py-2">{task.taskName}</td>
+                  <td className="px-4 py-2">{task.phaseName}</td>
+                  <td className="px-4 py-2">{task.status}</td>
+                  <td className="px-4 py-2">{task.teamName}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
+export async function getStaticPaths() {
+  const query = datastore.createQuery(STORE_KIND).select('storeNumber');
+  const [stores] = await datastore.runQuery(query);
+
+  const paths = stores.map((store) => ({
+    params: { storeNumber: store.storeNumber.toString() },
+  }));
+
+  return { paths, fallback: true };
+}
+
+export async function getStaticProps({ params }) {
+  const storeNumber = params.storeNumber;
+  const storeKey = datastore.key([STORE_KIND, storeNumber]);
+  const [store] = await datastore.get(storeKey);
+
+  if (!store) {
+    return { notFound: true };
+  }
+
+  // Fetch Tasks for the store
+  const taskQuery = datastore
+    .createQuery('Task')
+    .filter('storeNumber', '=', storeNumber);
+  const [tasks] = await datastore.runQuery(taskQuery);
+
+  // Fetch Phases
+  const phaseQuery = datastore.createQuery(PHASE_KIND).order('phaseOrder');
+  const [phases] = await datastore.runQuery(phaseQuery);
+
+  // Map phases by phaseId
+  const phasesById = {};
+  phases.forEach((phase) => {
+    phasesById[phase.phaseId] = phase;
+  });
+
+  // Add phaseOrder to store for currentPhaseId
+  const currentPhase = phasesById[store.currentPhaseId];
+  const currentPhaseOrder = currentPhase ? currentPhase.phaseOrder : 0;
+
+  // Map tasks to include phase and team details
+  const taskData = await Promise.all(
+    tasks.map(async (task) => {
+      const phase = phasesById[task.phaseId];
+      // Fetch Team
+      const teamKey = datastore.key(['Team', task.teamId]);
+      const [team] = await datastore.get(teamKey);
+
+      return {
+        ...task,
+        phaseName: phase ? phase.phaseName : '',
+        phaseOrder: phase ? phase.phaseOrder : 0,
+        teamName: team ? team.teamName : '',
+      };
+    })
+  );
+
+  const storeData = {
+    ...store,
+    tasks: taskData,
+    phases: phases,
+    currentPhaseOrder,
+  };
+
+  return {
+    props: { store: storeData },
+    revalidate: 60,
+  };
+}
+// pages/statistics.js
+import { useState, useEffect } from 'react';
+import Layout from '../components/Layout';
+import { Bar } from 'react-chartjs-2';
+import Chart from 'chart.js/auto';
+
+export default function Statistics() {
+  const [data, setData] = useState({});
+  const [phaseFilter, setPhaseFilter] = useState('All Phases');
+
+  useEffect(() => {
+    fetch(`/api/statistics?phase=${phaseFilter}`)
+      .then((res) => res.json())
+      .then((stats) => {
+        setData({
+          labels: Object.keys(stats),
+          datasets: [
+            {
+              label: 'Rollout Progress',
+              data: Object.values(stats),
+              backgroundColor: 'rgba(16, 185, 129, 0.6)',
+            },
+          ],
+        });
+      });
+  }, [phaseFilter]);
+
+  const handlePhaseChange = (e) => {
+    setPhaseFilter(e.target.value);
+  };
+
+  return (
+    <Layout>
+      <div className="bg-gray-800 rounded-lg p-6">
+        <h2 className="text-2xl font-bold mb-4">Statistics</h2>
+        <div className="mb-4">
+          <label className="block mb-2">Filter by Phase:</label>
+          <select className="w-full" value={phaseFilter} onChange={handlePhaseChange}>
+            <option>All Phases</option>
+            <option>Hardware Acquisition</option>
+            <option>Software Installation</option>
+            <option>Testing</option>
+            <option>Go Live</option>
+          </select>
+        </div>
+        <Bar data={data} />
+      </div>
+    </Layout>
+  );
+}
+// pages/api/statistics.js
+import datastore, { STORE_KIND, TASK_KIND, PHASE_KIND } from '../../lib/datastore';
+
+export default async function handler(req, res) {
+  const { phase } = req.query;
+
+  let storesQuery = datastore.createQuery(STORE_KIND);
+
+  if (phase && phase !== 'All Phases') {
+    // Get phaseId for the given phase name
+    const phaseQuery = datastore.createQuery(PHASE_KIND).filter('phaseName', '=', phase);
+    const [phases] = await datastore.runQuery(phaseQuery);
+    const phaseId = phases[0]?.phaseId;
+
+    if (phaseId) {
+      storesQuery = storesQuery.filter('currentPhaseId', '=', phaseId);
+    }
+  }
+
+  const [stores] = await datastore.runQuery(storesQuery);
+
+  const statusCounts = stores.reduce((acc, store) => {
+    acc[store.overallStatus] = (acc[store.overallStatus] || 0) + 1;
+    return acc;
+  }, {});
+
+  res.status(200).json(statusCounts);
+}
+// components/MapView.js
+import { useEffect, useRef } from 'react';
+import mapboxgl from 'mapbox-gl';
+
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+
+export default function MapView({ stores }) {
+  const mapContainer = useRef(null);
+
+  useEffect(() => {
+    if (!mapContainer.current) return;
+
+    const map = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/dark-v10',
+      center: [-98.5795, 39.8283],
+      zoom: 3,
+    });
+
+    stores.forEach((store) => {
+      if (store.latitude && store.longitude) {
+        new mapboxgl.Marker({ color: getColor(store.overallStatus) })
+          .setLngLat([store.longitude, store.latitude])
+          .setPopup(new mapboxgl.Popup().setText(`Store ${store.storeNumber}`))
+          .addTo(map);
+      }
+    });
+
+    return () => map.remove();
+  }, [stores]);
+
+  const getColor = (status) => {
+    switch (status) {
+      case 'Hardware Acquired':
+        return '#F59E0B';
+      case 'Software Installed':
+        return '#3B82F6';
+      case 'In-progress':
+        return '#6366F1';
+      case 'Live':
+        return '#10B981';
+      default:
+        return '#6B7280';
+    }
+  };
+
+  return <div ref={mapContainer} className="w-full h-96" />;
+}
+// pages/map.js
+import { useState, useEffect } from 'react';
+import Layout from '../components/Layout';
+import MapView from '../components/MapView';
+
+export default function MapPage() {
+  const [stores, setStores] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/stores')
+      .then((res) => res.json())
+      .then((data) => setStores(data));
+  }, []);
+
+  return (
+    <Layout>
+      <div className="bg-gray-800 rounded-lg p-6">
+        <h2 className="text-2xl font-bold mb-4">Rollout Map</h2>
+        <MapView stores={stores} />
+      </div>
+    </Layout>
+  );
+}
+// tailwind.config.js
+module.exports = {
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx}',
+    './components/**/*.{js,ts,jsx,tsx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        dark: '#1e293b',
+        light: '#ffffff',
+        primary: '#10b981',
+      },
+    },
+  },
+  plugins: [],
+};
+/* styles/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-dark text-light;
+}
+
+a {
+  @apply text-primary;
+}
+
+input, select {
+  @apply bg-gray-700 text-light border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-primary;
+}
+// pages/_app.js
+import 'mapbox-gl/dist/mapbox-gl.css';
+import '../styles/globals.css';
+
+function MyApp({ Component, pageProps }) {
+  return <Component {...pageProps} />;
+}
+
+export default MyApp;
